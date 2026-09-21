@@ -1,7 +1,7 @@
 'use server';
 
 import { connectToDatabase } from '@/database/mongoose';
-import { Alert, type IAlert } from '@/database/models/alert.model';
+import { Alert } from '@/database/models/alert.model';
 import { revalidatePath } from 'next/cache';
 import { getPeDropThreshold } from '@/lib/alerts/pe';
 
@@ -124,5 +124,3 @@ export async function toggleAlert(alertId: string, active: boolean) {
         throw new Error('Failed to update alert');
     }
 }
-
-export type { IAlert };
