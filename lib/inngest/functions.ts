@@ -226,7 +226,10 @@ export const checkStockAlerts = inngest.createFunction(
         }
 
         // Step 2: Group by symbol
-        const symbols = [...new Set(activeAlerts.map((a: any) => a.symbol))];
+        const priceAlerts = activeAlerts.filter((a: any) => (a.alertKind ?? 'PRICE') === 'PRICE');
+        const peAlerts = activeAlerts.filter((a: any) => a.alertKind === 'PE_DROP');
+        const symbols = [...new Set(priceAlerts.map((a: any) => a.symbol))];
+        const peSymbols = [...new Set(peAlerts.map((a: any) => a.symbol))];
 
         // Step 3: Fetch prices
         const prices = await step.run('fetch-prices', async () => {
@@ -247,16 +250,34 @@ export const checkStockAlerts = inngest.createFunction(
             return priceMap;
         });
 
+        // Step 3b: Fetch P/E ratios (cached hourly upstream; cheap to poll)
+        const peRatios = await step.run('fetch-pe-ratios', async () => {
+            if (peSymbols.length === 0) return {} as Record<string, number>;
+            const { getPERatio } = await import("@/lib/actions/finnhub.actions");
+            const peMap: Record<string, number> = {};
+            for (const sym of peSymbols) {
+                try {
+                    const pe = await getPERatio(sym as string);
+                    if (pe != null && Number.isFinite(pe) && pe > 0) {
+                        peMap[sym as string] = pe;
+                    }
+                } catch (e) {
+                    console.error(`Failed to fetch P/E for ${sym}`, e);
+                }
+            }
+            return peMap;
+        });
+
         // Step 4: Check conditions
-        type TriggeredAlert = { alert: any; currentPrice: number };
+        type TriggeredAlert = { alert: any; currentPrice?: number; currentPe?: number };
         const triggeredAlerts: TriggeredAlert[] = [];
 
-        for (const alert of activeAlerts as any[]) {
+        for (const alert of priceAlerts as any[]) {
             const currentPrice = prices[alert.symbol];
             if (!currentPrice) continue;
 
             let isTriggered = false;
-            // Simple check
+            // Simple check (legacy alerts without alertKind are PRICE alerts)
             if (alert.condition === 'ABOVE' && currentPrice >= alert.targetPrice) {
                 isTriggered = true;
             } else if (alert.condition === 'BELOW' && currentPrice <= alert.targetPrice) {
@@ -265,6 +286,17 @@ export const checkStockAlerts = inngest.createFunction(
 
             if (isTriggered) {
                 triggeredAlerts.push({ alert, currentPrice });
+            }
+        }
+
+        if (peAlerts.length > 0) {
+            const { isPeDropTriggered } = await import("@/lib/alerts/pe");
+            for (const alert of peAlerts as any[]) {
+                const currentPe = peRatios[alert.symbol];
+                if (currentPe == null) continue;
+                if (isPeDropTriggered(alert.basePeRatio, alert.dropPercent, currentPe)) {
+                    triggeredAlerts.push({ alert, currentPe });
+                }
             }
         }
 
@@ -277,8 +309,12 @@ export const checkStockAlerts = inngest.createFunction(
                 // For now, we just log it as the critical logic is the detection
                 await connectToDatabase();
 
-                for (const { alert, currentPrice } of triggeredAlerts) {
-                    console.log(`🚀 ALERT FIRED: ${alert.symbol} is ${currentPrice} (${alert.condition} ${alert.targetPrice})`);
+                for (const { alert, currentPrice, currentPe } of triggeredAlerts) {
+                    if (alert.alertKind === 'PE_DROP') {
+                        console.log(`🚀 PE ALERT FIRED: ${alert.symbol} P/E is ${currentPe} (base ${alert.basePeRatio}, -${alert.dropPercent}%)`);
+                    } else {
+                        console.log(`🚀 ALERT FIRED: ${alert.symbol} is ${currentPrice} (${alert.condition} ${alert.targetPrice})`);
+                    }
 
                     // Mark triggered
                     await Alert.findByIdAndUpdate(alert._id, { triggered: true, active: false });

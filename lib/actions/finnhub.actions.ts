@@ -87,14 +87,50 @@ export async function getCompanyProfile(symbol: string) {
     }
 }
 
+type FinnhubBasicFinancials = {
+    metric?: Record<string, number | null | undefined>;
+    symbol?: string;
+};
+
+const PE_METRIC_KEYS = [
+    'peBasicExclExtraTTM',
+    'peExclExtraTTM',
+    'peInclExtraTTM',
+    'peTTM',
+    'peAnnual',
+    'peNormalizedAnnual',
+] as const;
+
+export async function getPERatio(symbol: string): Promise<number | null> {
+    try {
+        const token = NEXT_PUBLIC_FINNHUB_API_KEY;
+        if (!token) return null;
+        const url = `${FINNHUB_BASE_URL}/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${token}`;
+        // P/E moves slowly; cache for 1 hour to save rate limits.
+        const data = await fetchJSON<FinnhubBasicFinancials>(url, 3600);
+        const metrics = data?.metric;
+        if (!metrics) return null;
+        for (const key of PE_METRIC_KEYS) {
+            const value = metrics[key];
+            if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+                return value;
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error('Error fetching P/E for', symbol, e);
+        return null;
+    }
+}
 export async function getWatchlistData(symbols: string[]) {
     if (!symbols || symbols.length === 0) return [];
 
     // Fetch quotes and profiles in parallel
     const promises = symbols.map(async (sym) => {
-        const [quote, profile] = await Promise.all([
+        const [quote, profile, peRatio] = await Promise.all([
             getQuote(sym),
-            getCompanyProfile(sym)
+            getCompanyProfile(sym),
+            getPERatio(sym),
         ]);
 
         return {
@@ -106,7 +142,7 @@ export async function getWatchlistData(symbols: string[]) {
             name: profile?.name || sym,
             logo: profile?.logo,
             marketCap: profile?.marketCapitalization,
-            peRatio: 0 // Finnhub 'quote' and 'profile2' don't easily give real-time PE. Might need 'metric' endpoint, but skipping for now to save rate limits.
+            peRatio: peRatio ?? 0,
         };
     });
 

@@ -47,6 +47,7 @@ export default function WatchlistTable({ data, userId, onRefresh }: WatchlistTab
                                     price: fresh.price,
                                     change: fresh.change,
                                     changePercent: fresh.changePercent,
+                                    peRatio: fresh.peRatio,
                                 };
                             }
                             return existing;
@@ -80,6 +81,7 @@ export default function WatchlistTable({ data, userId, onRefresh }: WatchlistTab
                         <th className="px-6 py-4 font-semibold tracking-wide">Price</th>
                         <th className="px-6 py-4 font-semibold tracking-wide">Change</th>
                         <th className="px-6 py-4 font-semibold tracking-wide">Market Cap</th>
+                        <th className="px-6 py-4 font-semibold tracking-wide">P/E</th>
                         <th className="px-6 py-4 text-right font-semibold tracking-wide">Actions</th>
                     </tr>
                 </thead>
@@ -126,12 +128,16 @@ export default function WatchlistTable({ data, userId, onRefresh }: WatchlistTab
                                 <td className="px-6 py-4 text-gray-400 font-medium">
                                     {formatNumber(stock.marketCap)}
                                 </td>
+                                <td className="px-6 py-4 text-gray-300 font-medium font-mono">
+                                    {typeof stock.peRatio === "number" && stock.peRatio > 0 ? stock.peRatio.toFixed(2) : "—"}
+                                </td>
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex items-center justify-end space-x-3 opacity-80 group-hover:opacity-100 transition-opacity">
                                         <CreateAlertModal
                                             userId={userId}
                                             symbol={stock.symbol}
                                             currentPrice={stock.price}
+                                            currentPeRatio={typeof stock.peRatio === "number" && stock.peRatio > 0 ? stock.peRatio : null}
                                             onAlertCreated={onRefresh}
                                         >
                                             <button className="p-2.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 transition-all border border-transparent hover:border-white/10" title="Add Alert">

@@ -3,8 +3,12 @@ import { Schema, model, models, type Document, type Model } from 'mongoose';
 export interface IAlert extends Document {
     userId: string;
     symbol: string;
-    targetPrice: number;
-    condition: 'ABOVE' | 'BELOW';
+    alertKind: 'PRICE' | 'PE_DROP';
+    alertName?: string;
+    targetPrice?: number;
+    condition?: 'ABOVE' | 'BELOW';
+    basePeRatio?: number;
+    dropPercent?: number;
     active: boolean;
     triggered: boolean;
     expiresAt: Date;
@@ -15,8 +19,12 @@ const AlertSchema = new Schema<IAlert>(
     {
         userId: { type: String, required: true, index: true },
         symbol: { type: String, required: true, uppercase: true, trim: true },
-        targetPrice: { type: Number, required: true },
-        condition: { type: String, enum: ['ABOVE', 'BELOW'], required: true },
+        alertKind: { type: String, enum: ['PRICE', 'PE_DROP'], default: 'PRICE', index: true },
+        alertName: { type: String, trim: true },
+        targetPrice: { type: Number, required: false },
+        condition: { type: String, enum: ['ABOVE', 'BELOW'], required: false },
+        basePeRatio: { type: Number, required: false, min: 0 },
+        dropPercent: { type: Number, required: false, min: 0, max: 100 },
         active: { type: Boolean, default: true },
         triggered: { type: Boolean, default: false },
         expiresAt: {

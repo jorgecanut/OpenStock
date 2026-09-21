@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { removeFromWatchlist } from "@/lib/actions/watchlist.actions";
-import { getQuote } from "@/lib/actions/finnhub.actions";
+import { getQuote, getPERatio } from "@/lib/actions/finnhub.actions";
 import { Bell, Loader2, X } from "lucide-react";
 import CreateAlertModal from "./CreateAlertModal";
 
@@ -13,24 +13,24 @@ interface WatchlistStockChipProps {
 
 export default function WatchlistStockChip({ symbol, userId }: WatchlistStockChipProps) {
     const [price, setPrice] = useState<number>(0);
+    const [peRatio, setPeRatio] = useState<number | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [loadingPrice, setLoadingPrice] = useState(false);
 
     const handleBellClick = async () => {
         setLoadingPrice(true);
         try {
-            const data = await getQuote(symbol);
-            if (data && data.c) {
-                setPrice(data.c);
-                setModalOpen(true);
-            } else {
-                // Fallback if fetch fails
-                setPrice(0);
-                setModalOpen(true);
-            }
+            const [quote, pe] = await Promise.all([
+                getQuote(symbol),
+                getPERatio(symbol),
+            ]);
+            setPrice(quote?.c ?? 0);
+            setPeRatio(pe);
+            setModalOpen(true);
         } catch (err) {
             console.error(err);
             setPrice(0);
+            setPeRatio(null);
             setModalOpen(true);
         } finally {
             setLoadingPrice(false);
@@ -69,6 +69,7 @@ export default function WatchlistStockChip({ symbol, userId }: WatchlistStockChi
                 userId={userId}
                 symbol={symbol}
                 currentPrice={price}
+                currentPeRatio={peRatio}
                 open={modalOpen}
                 onOpenChange={setModalOpen}
             />

@@ -1,13 +1,23 @@
 "use client";
 
 import React from "react";
-import { Trash2, TrendingUp, Bell } from "lucide-react";
+import { Trash2, Bell } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { getPeDropThreshold } from "@/lib/alerts/pe";
 import { deleteAlert } from "@/lib/actions/alert.actions";
 
 interface AlertsPanelProps {
     alerts: any[];
     onRefresh?: () => void;
+}
+
+function getAlertDescription(alert: any): string {
+    if (alert.alertKind === "PE_DROP") {
+        const threshold = getPeDropThreshold(alert.basePeRatio, alert.dropPercent);
+        const thresholdText = Number.isFinite(threshold) ? threshold.toFixed(2) : "—";
+        return `P/E drops ${alert.dropPercent}% below ${alert.basePeRatio} (≤ ${thresholdText})`;
+    }
+    return `Price ${String(alert.condition ?? "").toLowerCase()} ${formatCurrency(alert.targetPrice)}`;
 }
 
 export default function AlertsPanel({ alerts, onRefresh }: AlertsPanelProps) {
@@ -43,12 +53,25 @@ export default function AlertsPanel({ alerts, onRefresh }: AlertsPanelProps) {
                                             {alert.symbol[0]}
                                         </div>
                                         <div>
-                                            <div className="font-bold text-white text-sm">{alert.symbol}</div>
-                                            <div className="text-xs text-gray-400">Target: {formatCurrency(alert.targetPrice)}</div>
+                                            <div className="font-bold text-white text-sm">
+                                                {alert.alertName ? `${alert.alertName} · ${alert.symbol}` : alert.symbol}
+                                            </div>
+                                            <div className="text-xs text-gray-400">
+                                                {alert.alertKind === "PE_DROP" ? (
+                                                    <>Trigger at P/E ≤ {Number.isFinite(getPeDropThreshold(alert.basePeRatio, alert.dropPercent)) ? getPeDropThreshold(alert.basePeRatio, alert.dropPercent).toFixed(2) : "—"}</>
+                                                ) : (
+                                                    <>Target: {formatCurrency(alert.targetPrice)}</>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="mt-2 text-xs text-yellow-500 font-medium">
-                                        Condition: Price {alert.condition.toLowerCase()} {formatCurrency(alert.targetPrice)}
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <span className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${alert.alertKind === "PE_DROP" ? "bg-purple-500/15 text-purple-300" : "bg-yellow-500/15 text-yellow-400"}`}>
+                                            {alert.alertKind === "PE_DROP" ? "P/E drop" : "Price"}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 text-xs text-yellow-500 font-medium">
+                                        Condition: {getAlertDescription(alert)}
                                     </div>
                                     <div className="text-[10px] text-gray-500 mt-1">
                                         Active until {new Date(new Date(alert.createdAt).getTime() + 90 * 24 * 60 * 60 * 1000).toLocaleDateString()}
