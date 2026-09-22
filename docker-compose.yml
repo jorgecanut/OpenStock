@@ -4,6 +4,9 @@ services:
       context: .
       extra_hosts:
         - "mongodb:host-gateway"
+      args:
+        # NEXT_PUBLIC_* vars are frozen at build time, so pass them to the build.
+        - NEXT_PUBLIC_FINNHUB_API_KEY=${NEXT_PUBLIC_FINNHUB_API_KEY}
     ports:
       - "3000:3000"
     env_file:

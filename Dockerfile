@@ -17,6 +17,11 @@ RUN npm install
 # Copy all project files
 COPY . .
 
+# NEXT_PUBLIC_* variables are inlined into the build output at build time, so
+# they must be present here (runtime env_file is too late for them).
+ARG NEXT_PUBLIC_FINNHUB_API_KEY
+ENV NEXT_PUBLIC_FINNHUB_API_KEY=$NEXT_PUBLIC_FINNHUB_API_KEY
+
 # Build the Next.js application
 RUN npm run build
 # Or if using pnpm:
