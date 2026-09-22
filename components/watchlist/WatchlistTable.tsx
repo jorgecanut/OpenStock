@@ -17,6 +17,7 @@ interface WatchlistTableProps {
 
 export default function WatchlistTable({ data, userId, onRefresh }: WatchlistTableProps) {
     const [stocks, setStocks] = useState(data);
+    const symbolKey = stocks.map(s => s.symbol).join(',');
 
     useEffect(() => {
         // Initial set if prop changes
@@ -24,14 +25,12 @@ export default function WatchlistTable({ data, userId, onRefresh }: WatchlistTab
     }, [data]);
 
     useEffect(() => {
-        if (!stocks || stocks.length === 0) return;
+        const symbols = symbolKey ? symbolKey.split(',') : [];
+        if (symbols.length === 0) return;
 
         // Poll for price updates every 15 seconds
         const interval = setInterval(async () => {
             try {
-                const symbols = stocks.map(s => s.symbol);
-                if (symbols.length === 0) return;
-
                 // Dynamic import to avoid server-action issues if directly imported in client component sometimes
                 const { getWatchlistData } = await import('@/lib/actions/finnhub.actions');
                 const updatedData = await getWatchlistData(symbols);
@@ -60,7 +59,7 @@ export default function WatchlistTable({ data, userId, onRefresh }: WatchlistTab
         }, 5000);
 
         return () => clearInterval(interval);
-    }, [stocks]); // Re-create interval if list size changes
+    }, [symbolKey]); // Re-create only when symbols change
 
     if (!stocks || stocks.length === 0) {
         return (

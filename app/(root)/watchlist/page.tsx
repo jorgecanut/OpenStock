@@ -22,17 +22,31 @@ export default async function WatchlistPage() {
 
     const userId = session.user.id;
 
+    // News is an enhancement to the watchlist, not a reason for the page to
+    // fail. Finnhub can reject requests because of rate limits, a missing key,
+    // or a temporary outage, so keep the page usable when that happens.
+    const getNewsSafely = async (symbols?: string[]) => {
+        try {
+            return await getNews(symbols);
+        } catch (error) {
+            console.error('Watchlist news fetch failed:', error);
+            return [];
+        }
+    };
+
     // Parallel data fetching
     const [watchlistItems, alerts, news] = await Promise.all([
         getUserWatchlist(userId),
         getUserAlerts(userId),
-        getNews() // Initial news fetch
+        getNewsSafely() // Initial news fetch
     ]);
 
     const watchlistSymbols = watchlistItems.map((item: any) => item.symbol);
 
     // Fallback news if watchlist has items
-    const relevantNews = watchlistSymbols.length > 0 ? await getNews(watchlistSymbols) : news;
+    const relevantNews = watchlistSymbols.length > 0
+        ? await getNewsSafely(watchlistSymbols)
+        : news;
 
     return (
         <div className="min-h-screen bg-black text-gray-100 p-6 md:p-8">

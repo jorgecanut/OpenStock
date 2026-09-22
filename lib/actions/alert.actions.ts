@@ -23,7 +23,7 @@ type PeDropAlertParams = {
     dropPercent: number;
 };
 
-export type CreateAlertParams = PriceAlertParams | PeDropAlertParams;
+type CreateAlertParams = PriceAlertParams | PeDropAlertParams;
 
 // Create a new alert (price or P/E-drop)
 export async function createAlert(params: CreateAlertParams) {
